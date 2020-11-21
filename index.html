@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>vue注意力游戏</title>
+	
+	<link type="text/css" href="css/style.css" rel="stylesheet" />
+
+</head>
+<body>
+
+    <div class="wrap">
+        <h3>15秒注意力大考验</h3>
+        <div id="main">
+            <div class="main">
+                <box v-for="(item, index) in items" :key="index" :num = "item" :times = "times" :rest = "rest" :add-times.sync = 'times' :time-count.sync = 'timeCount'></box>
+                <div class="control">
+                    <button @click="startGame">开始游戏</button>
+                    <p>用时：{{time}} 秒</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <template id="box">
+        <li class="box" @click="clickBox()" :class="{right: isRight}" :data-id=num.id>
+            <p>{{num.val}}</p>
+        </li>
+    </template>
+    <template>
+        <div></div>
+    </template>
+	
+    <script src="https://cdn.bootcss.com/vue/2.6.1/vue.min.js"></script>
+    <script type="module">
+        // 方格组件
+        Vue.component('box', {
+            template: '#box',
+            props: ['num', 'times', 'rest'],
+            data() {
+                return {
+                    isRight: false,
+                    isNum: 0
+                }
+            },
+
+            methods: {
+                /*
+                ** @desc: clickBox 点击方块的函数，点击正确的方块并计数，通过正确点击次数与方块数字相比较，是否按顺序点击方块，如果是，add-times加1次，并更改方块样式。如果所有方块都点完，则更改time-count的值。同时判断是否开始游戏，如果没有开始游戏则跳出提示
+                ** @method: vm.$emit(event, newval)
+                ** @param:
+                ** @return:
+                ** @key: this.$emit 子组件更新父组件的方法，通过在父组件中绑定子组件:add-times.sync='times' 
+                */
+                clickBox: function() {
+                    let t = this.times + 1
+                    if(this.num.val == this.times && this.rest == true) {
+                        this.isRight = true;
+                        this.$emit('update:add-times', t)
+                        if(t == 26){
+                            this.$emit('update:time-count', true)
+                        }
+                    }else if(this.rest == false) {
+                        alert('请开始游戏');
+                    }
+                }
+            },
+            watch: {
+                /*
+                ** @desc: rest 监听rest变量的值，来判断游戏是否重新开始，重置方块所有的样式
+                ** @method:
+                ** @param:
+                ** @return:
+                */
+                'rest': function(newnum) {
+                    this.isRight = false
+                }
+            }
+        })
+
+        var v = new Vue({
+            el: '#main',
+            data: {
+                items: [],
+                times: 1, // 正确点击次数
+                rest: false, // 重置标识
+                time: 0, // 计时
+                timeSend: null,
+                timeCount: false, // 方块点完标识
+                players: JSON.parse(localStorage.getItem('list'))
+            },
+            // TODO 应当增加一个载入网页时，导入成绩的方法
+            created: function() {
+                // 创建方格
+                this.buildBox();
+                // 开始计时
+                // this.totalTime();
+            },
+
+            watch: {
+                /*
+                ** @desc: timeCount 监听方块是不是点完25块
+                ** @method: clearInterval(intervalID) 取消设置的计数任务
+                ** @param:
+                ** @return:
+                */
+                'timeCount': function(res) {
+                    if(res){
+                        clearInterval(this.timeSend)
+                        if(this.time > 20){
+                            alert("一共花费：" + this.time + "秒!你的记忆力相当于一头猪！")
+                        }else if(this.time > 15 && this.time  <= 20){
+                            alert("一共花费：" + this.time + "秒!你的记忆力也就比一头猪强！")
+                        }else if(this.time > 13 && this.time  <= 15) {
+                            alert("一共花费：" + this.time + "秒!你的记忆力处于普通人范围！")
+                        }else if(this.time > 10 && this.time  <= 13) {
+                            alert("一共花费：" + this.time + "秒!很棒，你的记忆力比一般人强！")
+                        }else if(this.time < 10) {
+                            alert("一共花费：" + this.time + "秒!卧槽，你还是人么！")
+                        }                       
+                        this.timeCount = false
+                    }
+                }
+            },
+
+            methods: {
+                /* 
+                ** @desc: buildBox 创建25块方格
+                ** @method: Math.floor(number) 向下取整  Math.random() 返回0-1之间包含0，不包含1的浮点数  isRepeat(data, array) 判断二维数组中是否有data的重复数据
+                ** @param:
+                ** @return: {Array} arr 返回方格集合
+                */
+                buildBox: function() {
+                    let arr = new Array();
+                    let i = 0
+                    while ( i < 25 ) {
+                        let data = Math.floor(Math.random()*25 + 1)
+                        if (this.isRepeat(data, arr)) {
+                            arr[i] = {
+                                val: data,
+                                id: i
+                            }
+                            i++
+                        }
+                    } 
+                    this.items = arr;
+                },
+
+                /* 
+                ** @desc: startGame 重新开始游戏；首先清空计时时间，然后随机重新生成数字排序，重置时间、正确点击数，并重新开始计时
+                ** @method: clearInterval(intervalID) 取消计时任务  totalTime() 计时函数
+                ** @param:
+                ** @key: 通过改变rest的值来重置方格的背景样式
+                */
+                startGame: function() {
+                    clearInterval(this.timeSend)
+                    let arr = new Array();
+                    let i = 0
+                    while ( i < 25 ) {
+                        let data = Math.floor(Math.random()*25 + 1)
+                        if (this.isRepeat(data, arr)) {
+                            arr[i] = {
+                                val: data,
+                                id: i
+                            }
+                            i++
+                        }
+                    } 
+                    this.items = arr;
+                    this.rest = !this.rest
+                    this.times = 1
+                    this.time = 0
+                    this.totalTime();
+                },
+
+                stopGame: function() {
+                    clearInterval(this.timeSend)
+                },
+
+                /* 
+                ** @desc: isRepeat 检测元素是否在数组中存在,如果存在返回false，如果不存在,返回true
+                ** @param: element 要检测的元素，arr 元素所在的数组
+                ** @method: 
+                ** @return: {bool} true or false 
+                */
+                isRepeat: function(element, arr) {
+                    for (let j = 0; j < arr.length; j++) {
+                        if (arr[j]['val'] === element) {
+                            return false;
+                        }
+                    }
+                    return true;
+                },
+
+                /* 
+                ** @desc: totalTime 计时函数
+                ** @method: setInterval(code, millisec) code 调用代码或要执行的代码串 millisec 周期性执行或调用code之间的时间间隔，以毫秒计
+                ** @param: 
+                ** @return:  this.time
+                */
+                totalTime: function(){
+                    this.timeSend = setInterval(() => {
+                        this.time++
+                    }, 1000)
+                }
+            }
+        })
+    </script>
+	<div style="text-align:center;">
+<p>陆尧瓜瓜：<a href="https://luyaoguagua.top/" target="_blank">仅供测试，注意护眼。</a></p>
+</div>
+</body>
+</html>
